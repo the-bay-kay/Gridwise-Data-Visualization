@@ -17,4 +17,4 @@ INSTALL_PREFIX=$HOME/miniconda-$EXP_CONDA_VER
 SOURCE_SCRIPT="$HOME/miniconda-$EXP_CONDA_VER/etc/profile.d/conda.sh"
 source $SOURCE_SCRIPT
 
-conda env update --name hive_extension --file setup/hive_conda.yml
+conda env update --name parse_gridwise --file setup/parse_gridwise.yml

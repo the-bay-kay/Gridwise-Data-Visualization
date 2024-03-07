@@ -1,4 +1,4 @@
-name: hive_extension 
+name: parse_gridwise 
 channels:
 - conda-forge
 - defaults
