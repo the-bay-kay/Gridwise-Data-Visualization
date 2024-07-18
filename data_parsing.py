@@ -30,8 +30,39 @@ Args:
     Time division: minutes, hours
     maximum: Max cutoff, only used for '>' and '>='.
         e.g., makeBoxPlot(1*HOURS, '>=', 'hours', 2*HOURS), read as 1hr <= h <= 2hrs
+    location_key: 'LA', 'Pittsburgh', or 'None' -- config for private df generation function
 '''
-def makeBoxPlot(df, cutoff, operator = '<', time_division = 'hours', maximum = (24 * constants.HOURS)):
+
+def makeBoxPlot(df, cutoff, operator = '<', time_division = 'hours', maximum = (24 * constants.HOURS), location_key = None):
+    if location_key:
+        result_df = internal_makeBoxPlot(df, cutoff, operator, time_division, maximum, constants.TIMEZONES[location_key])
+    else:
+        la_df = internal_makeBoxPlot(df, cutoff, operator, time_division, maximum, constants.TIMEZONES['LA'])
+        pit_df = internal_makeBoxPlot(df, cutoff, operator, time_division, maximum, constants.TIMEZONES['Pittsburgh'])
+        result_df = pd.concat([la_df, pit_df])
+
+    formatted_cuttof = ((cutoff / 60 / 60) if time_division == 'hours' else (cutoff / 60))
+    formatted_maximum = ((maximum / 60 / 60) if (maximum > 60*60 ) else (maximum / 60))
+    if(operator == '<' or operator == '<='):
+        y_label = '[0 < d %s %.1f]'% (operator, formatted_cuttof)
+    else:
+        new_op = '<' + operator[1:]
+        print(formatted_maximum)
+        y_label = '[%.1f %s d <= %.1f]'% (formatted_cuttof, new_op, formatted_maximum)
+
+
+    plt.xlabel('Start of Intermission (24 Hours)')
+    plt.ylabel('Avg. Intermission Duration ' + y_label + ' (' + time_division + ')')
+    result_df.boxplot()
+    plt.show()
+    
+    return 0
+
+# # # # # # # # # # #
+# Private Functions #
+# # # # # # # # # # #
+
+def internal_makeBoxPlot(df, cutoff, operator = '<', time_division = 'hours', maximum = (24 * constants.HOURS), timezone = None):
     if('start_time' in df.columns ):
         start_str = 'start_time'
     else: # I chose to make interm. start, just to ensure the DFs aren't mixed up...
@@ -58,19 +89,24 @@ def makeBoxPlot(df, cutoff, operator = '<', time_division = 'hours', maximum = (
     result_df = pd.concat(grouped_data, axis=1).dropna()
     result_df.columns = range(0, len(cutoff_group))
 
-    formatted_cuttof = ((cutoff / 60 / 60) if time_division == 'hours' else (cutoff / 60))
-    formatted_maximum = ((maximum / 60 / 60) if (maximum > 60*60 ) else (maximum / 60))
-    if(operator == '<' or operator == '<='):
-        y_label = '[0 < d %s %.1f]'% (operator, formatted_cuttof)
-    else:
-        new_op = '<' + operator[1:]
-        print(formatted_maximum)
-        y_label = '[%.1f %s d <= %.1f]'% (formatted_cuttof, new_op, formatted_maximum)
+    # REMOTE LATER: Below is a hack to translate UTC -> PST/EST, since I was having issues
+    # with dateTime localization... This will not work with other timezones -- I'll
+    # separate out the functionality later
+    if(timezone != None):
+        utc_to_local = 0
+        if(timezone == constants.TIMEZONES['LA']):
+            utc_to_local = 17
+        elif(timezone == constants.TIMEZONES['Pittsburgh']):
+            utc_to_local = 20
+        else:
+            print('ERROR!! Bad TZ')
+            return 1
 
+        l = list(range(0, len(cutoff_group)))
+        # The hack : Move the times by the localization :p
+        for i in range(utc_to_local):
+            l.append(l.pop(0))
+        result_df.columns = l
+        result_df = result_df.reindex(sorted(result_df.columns), axis=1)
 
-    plt.xlabel('Start of Intermission (24 Hours)')
-    plt.ylabel('Avg. Intermission Duration ' + y_label + ' (' + time_division + ')')
-    result_df.boxplot()
-    plt.show()
-    
-    return 0
+    return result_df    
